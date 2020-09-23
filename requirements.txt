@@ -1,0 +1,6 @@
+numpy >= 1.11.0
+scikit-image >= 0.15.0
+tqdm >= 4.38.0
+tifffile
+scikit-learn
+opencv-python

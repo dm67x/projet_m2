@@ -1,0 +1,10 @@
+.vscode
+images
+labels
+notebook/.ipynb_checkpoints
+venv
+output
+*.log
+__pycache__
+*.synctex.gz
+*.aux

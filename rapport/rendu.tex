@@ -1,0 +1,238 @@
+\documentclass[paper=a4, 11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage[a4paper, left=30mm, top=30mm]{geometry}
+\usepackage{subfig}
+
+\title{Projet Master 2 - I3D.\\
+Profils d'attribut morphologique pour la segmentation d’image.}
+\author{Mehmet Ozkan}
+
+\begin{document}
+\maketitle
+
+\paragraph{}
+
+\section{Contexte du sujet}
+
+\begin{figure}[h]
+\centering
+\subfloat[]{{\includegraphics[scale=0.5]{images/profil.png}}}
+\qquad
+\subfloat[]{{\includegraphics[scale=0.5]{images/fib.png}}}
+\caption{Profil d’attributs morphologiques : les informations données par chaque opérateur sont concaténées dans un vecteur (a) et la coupe d’une image FIB/SEM 3D (b)}
+\label{fig:contexte}
+\end{figure}
+
+\paragraph{} L'objectif de mon sujet de projet de Master 2 est d'extraire des profils d'attribut morphologique sur des images médicales (Figure \ref{fig:contexte}) pour permettre de mettre en place des forêts d'arbres de décision pour la classification.
+\paragraph{} La première partie du projet est d'extraire les profils sur des images quelconques et ainsi obtenir un vecteur de profils, contenant le profil d'épaississement et le profil d'amincissement (Figure \ref{fig:contexte}). La seconde partie est d'appliquer un apprentissage supervisé, en utilisant les forêts d'arbres décisionnels, ou \textit{random forests} en anglais. Les caractéristiques sont extraites à partir des différents profils morphologiques, notamment les profils d'attribut et les profils d'extinction.
+\paragraph{} Pour répondre à ces deux problématiques, j'ai eu comme support deux articles scientifiques\cite{article1, article2}. Ces articles s'appuient sur deux techniques différentes pour extraire des profils, l'un permettant d'extraire des profils d'attribut tandis que l'autre permet d'extraire des profils d'extinction. Ainsi, pour pouvoir développer ce projet j'avais pour seul contraite d'utiliser le langage de programmation C++ ou le langage de programmation Python. Après discussion avec mon encadrant, nous avons pris la décision de nous orienter plutôt vers le Python, où il y a un nombre important de bibliothèques en rapport avec la problématique du sujet.
+
+\section{Explication des différents principes}
+\paragraph{} Dans cette partie, je vais expliquer les différents principes qui m'ont permit de mettre en place les différents algorithmes. Ainsi, je vais parler de la représentation des images sous forme d'arbre, dont il y a plusieurs types différents. De la manière de filtre pour récupérer les différents profils d'attribut ou d'extinction qui nous intéressent. Ainsi que d'une technique d'apprentissage supervisée utilisée dans le domaine de la reconnaissance d'image, qui sont les forêts d'arbres décisionnels.
+
+\subsection{Représentation d'une image en arbre}
+\paragraph{} La représentation d'une image sous forme d'arbre apporte plus de clarté pour permettre d'élaguer, et donc de filtrer des images rapidement et sans prise de tête. Ainsi on peut stocker les différents attributs qui nous permettent de concevoir nos profils. Cette technique est largement utilisée dans le domaine du traitement de l'image, mais aussi dans la segmentation d'image et encore dans l'apprentissage supervisée pour permettre de classifier et détecter des similitudes.
+
+\subsubsection{Max-tree et Min-tree (ou component-tree)}
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.5]{images/attribut_maxnode.png}
+\caption{Exemple d'attributs possibles à chaque noeud de l'arbre max-tree.}
+\label{fig:exempleattrib}
+\end{figure}
+
+\paragraph{} L'avantage que procure les structures \textit{max-tree} est le fait que l'on peut calculer pour chaque noeud de l'arbre des attributs divers. Tels que, la hauteur de l'arbre qui donne une indication sur le contraste de l'image, la zone (area) qui est un attribut de taille, le volume qui est une combinaison du contraste et de la taille, et bien plus encore. La Figure \ref{fig:exempleattrib} montre les différentes équations pour calculer ces différents attributs.
+
+\paragraph{} Il y a plusieurs algorithmes qui existent pour construire cet arbre, plus précisemment il y a trois grandes catégories d'algorithmes. La première étant les algorithmes immersifs, puis les algorithmes de \textit{flooding} et enfin les algorithmes basés sur la fusion d'élément\cite{article3}.
+
+\paragraph{} La structure se représente sous deux grandes formes en mémoire. Premièrement en tant que deux vecteurs, l'un contenant les parents des pixels et l'autre contenant les indices des noeuds pour traverser l'arbre, tout cela, ordonnés. Et l'autre grande représentation consiste à avoir un tableau de la dimension de l'image, contenant pour chaque pixel le noeud correspondant dans l'arbre. Et un autre tableau contenant les parents des noeuds ainsi que les différentes valeurs que l'on peut y mettre, par exemple, la valeur en niveau de gris et les attributs de taille (zone).
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=1]{images/compare_max-tree.png}
+\caption{Temps moyen de traitement nécessaire pour la construction, le filtrage et la restitution d'un max-tree en millisecondes.}
+\label{fig:averagemaxtree}
+\end{figure}
+
+\paragraph{} Ainsi filtrer et reconstruire un \textit{max-tree} est très rapide contrairement au temps que l'on passe à le construire, voir Figure \ref{fig:averagemaxtree}.
+
+% TODO: WIP
+
+\paragraph{} Min-tree est le dual du max-tree. En récupérant une image et en appliquant un max-tree sur l'image négatif de cette même image, on obtient un min-tree.
+
+\begin{figure}[h]
+\centering
+\subfloat[]{{\includegraphics[scale=0.75]{images/component-tree.png}}}
+\qquad
+\subfloat[]{{\includegraphics[scale=0.75]{images/max-tree.png}}}
+\caption{(a) Component-tree et (b) max-tree de l'image à une dimension avec comme valeurs de f = [0, 6, 2, 5, 1, 1, 3, 3, 1, 0].}
+\label{fig:compmax}
+\end{figure}
+
+\paragraph{} On dit également que le \textit{component-tree} et le \textit{max-tree} sont des synonymes, même si certains considèrent que le \textit{max-tree} est une forme compacte du \textit{component-tree}, voir la Figure \ref{fig:compmax}.
+
+\subsubsection{Tree of shapes}
+\paragraph{} L'arbre des formes est une structure d'arbre représentant une image. Elle est définit en tant que la fusion des min-tree et max-tree. Ainsi on peut éliminer les redondances dans ces deux derniers arbres. Cet arbre encode l'inclusion spatiale des composantes connexes en niveau de gris. L'accès est facile et peut-être utilisé dans des domaines variés, liés au traitement de l'image.
+
+\subsection{Profil d'attribut}
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=1]{images/ap.png}
+\caption{Equation mathmatique des profils d'attribut. Le profil est composé de 2n+1 images.}
+\label{fig:ap}
+\end{figure}
+
+\paragraph{} Le profil d'attribut est un vecteur comportant n-ouvertures morphologiques et n-fermetures morphologiques ainsi que l'image originelle. Ce profil est calculé en utilisant les max-tree et min-tree. Ainsi on filtre en utilisant des filtres d'attribut, dans notre cas par la zone (area). Le profil est la concaténation de tous ces éléments pour un vecteur de seuil donné. L'équation mathématique correspondant au profil d'attribut est donnée dans la Figure \ref{fig:ap}.
+
+\paragraph{} Donc si l'on a un vecteur de seuil de taille N, on aura un vecteur de profil de taille 2*N + 1, comportant N-fermetures, l'image originelle et N-ouvertures.
+
+\subsection{Profil d'extinction}
+
+\begin{figure}[h]
+\centering
+\subfloat[]{{\includegraphics[scale=0.5]{images/ep.png}}}
+\qquad
+\subfloat[]{{\includegraphics[scale=0.5]{images/max_tree_ep.png}}}
+\caption{(a) Equation mathématique du profil d'extinction. Le profil est composé de 2n+1 images. (b) Max-tree correspondant à une image où les noeuds en vert et bleu représente le filtre d'extinction avec n = 5.}
+\label{fig:ep}
+\end{figure}
+
+
+\paragraph{} Tout comme le profil d'attribut, le profil d'extinction se compose de la même manière. Sauf qu'au lieu d'utiliser des filtres d'attribut on utilise des filtres d'extinction, qui sont les valeurs extremes des arbres max-tree et min-tree. L'équation mathématique correspondant au profil d'extinction est donnée dans la Figure \ref{fig:ep}.
+
+\subsection{Automatisation de la recherche des seuils}
+\paragraph{} Le principale problème des profils d'attributs morphologiques est de trouver le bon seuil pour les différents critères pour avoir les bonnes valeurs de profils. Ce problème est exclue des profils d'extinction qui n'utilise pas des seuils à proprement parlé mais des extrêmes. Comme on s'intéresse uniquement aux valeurs des extrêmes dans l'arbre \textit{max-tree}. Pour remedier à ce problème l'article scientifique\cite{article2} parle de la manière d'automatiser cette recherche. Pour cela on s'intéresse aux \textit{Granulometric Characteristics Functions}, ou GCF. L'algorithme est donné dans l'article\cite{article2}.
+
+\subsubsection{Granulometric characteristic function (GCF)}
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.75]{images/gcf.png}
+\caption{Equation mathématique de la fonction GCF où M est une mesure possible.}
+\label{fig:gcf}
+\end{figure}
+
+\paragraph{} La GCF est une fonction permettant de décrire/quantifier l'effet d'un filtre sur une image en nuance de gris. L'équation mathématique est donnée par la Figure \ref{fig:gcf}. Dans l'article\cite{article2}, on nous décrit trois grandes fonctions GCF. La GCF qui quantifie la différence des valeurs de pixel entre l'image d'origine et le profil, celle qui nous décrit le nombre de pixels différents entre l'image d'origine et le profil, et enfin, celle qui quantifie la différence entre la cardinalité des composantes connexes de l'image de base et celle du profil. 
+
+\subsection{Apprentissage}
+\paragraph{} Dans cette section, je vais expliquer le principe des forêts d'arbres décisionnels.
+
+\subsubsection{Arbre de décision}
+\begin{figure}[!h]
+\centering
+\includegraphics[scale=0.5]{images/Arbre_de_decision.jpg}
+\caption{Arbre de décision permettant de prendre une décision binaire (oui ou non).}
+\end{figure}
+
+\paragraph{} Un arbre de décision est un arbre où chaque noeud est une condition menant vers un autre noeud pour au final arriver sur une décision finale se situant sur une feuille de l'arbre. Ainsi à chaque noeud de l'arbre, on effectue une décision intermédiaire, qui en fonction de la décision nous conduit vers un autre noeud, voir vers la décision finale. L'arbre est construit en fonction des critères (caractéristiques) passés. Un exemple d'arbre de décision est décrit par la Figure 1.
+
+\subsubsection{Forêts d'arbres décisionnels}
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.5]{images/randomforest.jpeg}
+\caption{Explication des random forests. DT = Arbre de décision. A et B sont deux classes.}
+\label{fig:randomforest}
+\end{figure}
+
+\paragraph{} L'algorithme des forêts d'arbres décisionnels effectue un apprentissage sur de multiples arbres de décision entraînés sur des sous-ensembles de données légèrement différents\cite{wikipedia}, voir Figure \ref{fig:randomforest}. A la fin, la classe est déterminée en effectuant un vote à la majorité. Par exemple, si sur trois arbres de décision, l'un donne comme décision que la classe est A et que les deux autres me donnent comme décision B alors la classe sera prédite comme étant B. Ce modèle est utilisé pour la classification de données.
+
+\section{Application}
+\paragraph{} Dans cette partie, je vais parler des outils utilisés, des moyens mis en place pour palier à certains problèmes. Ainsi que des étapes du développement appliquées pour répondre à la problématique du sujet.
+
+\subsection{Outils}
+\paragraph{} Comme évoqué dans les sections précédentes, j'ai utilisé pour ce projet le langage de programmation Python, qui contient énormément de bibliothèques concernant le traitement de l'image, la construction des différentes représentation d'arbre, ainsi que des modèles pour l'apprentissage supervisé et non-supervisé.
+
+\paragraph{} Pour la construction des \textit{max-tree} et pour récupérer les profils d'extinction et d'attribut, j'ai utilisé la librairie \textit{siamxt}\cite{souza2017iamxt}, conçu par les auteurs ayant écrit l'article scientifique\cite{article1}, qui est mit à disposition.
+
+\paragraph{} Le traitement de l'image est rendu possible en utilisant la librairie matricielle \textit{numpy} et de la bibliothèque \textit{scikit-image} permettant de travailler sur ces matrices, pour le traitement de l'information matricielle, mais aussi pour l'import et export des images et des profils.
+
+\paragraph{} La partie apprentissage a été rendu possible grâce à l'utilisation de la librairie \textit{scikit-learn} qui se compose de plusieurs modèle, dont les forêts d'arbres décisionnels.
+
+\paragraph{} Pour le visuel, j'ai utilisé \textit{matplotlib}. Pour afficher les images et les graphiques. Ainsi que de \textit{tqdm} pour mettre en place des barres de progression au sein du terminal pour voir l'avancée des étapes. La partie \textit{extraction} a été entièrement parallélisée pour permettre d'extraire les profils de plusieurs images à la fois, si le processeur le permet.
+
+\subsection{Implémentation}
+\paragraph{} La première partie du projet consiste à récupérer les profils d'attribut morphologique des différentes images mise à disposition. Dans notre cas des images FIB/SEM. 
+
+\paragraph{} Pour récupérer les profils en utilisant les images d'entrées, je construis des min-tree et max-tree de ces différentes images. Par la suite, j'applique un filtrage d'attribut pour les profils d'attribut et un filtrage d'extinction pour les profils d'extinction (dans notre cas on s'intéresse uniquement aux zones, mais on peut également regarder le contraste). Le profil est ainsi la concaténation de profil d'epaississement et d'amincissement qui sont récupérés à chaque étape de filtrage. Dans le cas, des profils d'attribut on parle également de fermeture morphologique et d'ouverture morphologique. Pour construire les max-tree et min-tree, j'ai recourt à la bibliothèque  \textit{siamxt}\cite{souza2017iamxt} permettant de concevoir ces arbres et de faire des traitement dessus. Cette librairie a été entièrement développée par les auteurs de l'article scientifique[1]. Lorsque j'ai les différents profils, je les sauvegarde sur le disque au format \textit{npz} en utilisant la librairie \textit{numpy}.
+
+\paragraph{} L'étape permettant de récupérer les profils est complétement parallélisée pour permettre d'utiliser tous les coeurs disponibles sur le processeur pour accélérer la tâche. Pour cela, j'utilise la librairie \textit{multithreading} fournit par Python 3.
+
+\paragraph{} Par la suite, je récupère ces profils et je les utilise sur des forêts d'arbres de décision pour faire de l'apprentissage supervisé. Pour cela je récupère les fichiers se trouvant dans le répertoire de sortie où il y a en plus des profils, les étiquettes correspondant aux images d'entrainement. Puis je construis le modèle en utilisant la bibliothèque \textit{scikit-learn}, et notamment le modèle \textit{RandomForestClassifier}, dont les paramètres sont définis dans le fichier \textit{option.py} dans le code source. Par exemple, le nombre d'arbres de décision que va comporter le modèle.
+
+\paragraph{} J'effectue ensuite une étape de validation croisée pour que l'on puisse alterner entre le jeu d'entrainement et le jeu de test à la volée. Ainsi je sépare les données en dix, pour avoir un jeu de test étant dix pourcent des données initiales. Ainsi, on selectionne le meilleur modèle correspondant à la reconnaissance de nos informations, après n-séparations. La librairie \textit{scikit-learn} intègre la fonction \textit{KFold} permettant de faire la validation croisée.
+
+\subsection{Problèmes rencontrés}
+\paragraph{} L'un des problèmes majeurs que j'ai rencontré était la gestion des profils d'extinction et de la construction du max-tree. Il y avait très peu d'information sur les profils d'extinction, tandis que pour la max-tree il y a des algorithmes, comme cité plus haut, mais qui ne sont pas si simple à mettre en place. Heureusement j'ai pu avoir accès au GitHub de l'un des auteurs de l'article scientifique\cite{article1}. Ainsi, j'ai utilisé la librairie \textit{siamxt} pour palier à ce problème.
+
+\paragraph{} Le deuxième problème était de savoir quoi donner aux forêts d'arbres décisionnels. Sachant que dans les deux articles, ils utilisent ce modèle de classification sans pour autant donner des détails quant aux entrées fournies.
+
+\paragraph{} Le troisième problème était d'utiliser le \textit{piecewise linear regression} pour estimer la valeur des GCF, qui est utilisée dans l'algorithme fournit dans l'article\cite{article2} pour calculer les seuils automatiquement, pour les profils d'attribut.
+
+\paragraph{} Enfin le dernier problème étant que ce travail de développement s'est vite retrouvé à être un travail de recherche. Je devais palier au manque d'informations sur les articles\cite{article1, article2} pour comprendre au mieux les différents principes. En m'intéressant aux références des articles.
+
+% TODO: problemes
+
+\subsection{Résultats}
+\paragraph{} Les résultats sont plutôt concluant même sur de petits jeu d'essai. Comme expliqué dans l'article scientifique\cite{article1}, les profils d'extinction apportent une meilleure précision que les profils d'attribut.
+
+\begin{figure}[h]
+\centering
+\subfloat[]{{\includegraphics[scale=0.5]{images/58.png}}}
+\qquad
+\subfloat[]{{\includegraphics[scale=0.5]{images/78.png}}}
+\caption{(a) Patch 58 et (b) patch 78. Images FIB.}
+\label{fig:patch}
+\end{figure}
+
+\paragraph{} La classification me donne le résultat suivant pour ces deux images. Le patch (a) de la Figure \ref{fig:patch} est classifié en tant que membrane nucléaire en utilisant les profils d'extinction, tandis que le (b) est classifié en tant que mitochondrie.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=1]{images/matrice_confusion_ep_500.png}
+\caption{Matrice de confusion pour 500 images.}
+\label{fig:confusion}
+\end{figure}
+
+\paragraph{} La matrice de confusion pour une taille de données de 500 images est indiqué par la Figure \ref{fig:confusion}. Ainsi on peut voir que les résultats ne sont pas mauvais sachant que plus les résultats sont dans la diagonale de la matrice mieux c'est.
+
+\section{Conclusion et ouverture}
+\paragraph{} En conclusion, ce projet m'a permit de mieux comprendre les principes des attributs morphologiques ainsi que de leurs utilités dans les différentes techniques de classification et détection d'images. J'ai également pu revoir mes bases concernant les différentes méthodes d'apprentissage, dans mon cas, surtout l'apprentissage supervisé automatique. Je n'ai malheureusement, pas eu les moyens d'implémenter tout ce qui a été demandé.
+
+\paragraph{} On peut par la suite, essayer d'utiliser la technique des profils d'attribut et d'extinction avec d'autres modèles d'apprentissage supervisé. Faire une comparaison entre l'apprentissage profond, qui récupère les caractéristiques importantes automatiquement en fonction d'un très grand nombre de données passées en paramètres. On peut également créer des données en utilisant les profils dans les domaines où le nombre de données est un critère important.
+
+\begin{thebibliography}{9}  
+\bibitem{article1}
+	Pedram Ghamisi, Roberto Souza, Jon Atli Benediktsson, Xiao Xiang Zhu, Let{\'\i}cia Rittner, Roberto A. Lotufo,
+Extinction profile for the classification of remote sensing data IEEE Transactions on Geoscience and Remote
+Sensing, 54(10), pp. 5631-5645, 2016.
+
+\bibitem{article2}
+	Gabriele Cavallaro, Nicola Falco, Mauro Dalla Mura, Jon Benediktsson, Automatic attribute profiles IEEE
+Transactions on Image Processing, 26(4), pp.1859-1872, 2017.
+
+\bibitem{article3}
+	Roberto Souza, Lu{\'\i}s Tavares, Let{\'\i}cia Rittner, Roberto Lotufo,
+	An overview of max-tree principles, algorithms and applications,
+	2016.
+
+\bibitem{souza2017iamxt}
+	  iamxt: Max-tree toolbox for image processing and analysis,
+	  Souza, Roberto and Rittner, Let{\'\i}cia and Machado, Rubens and Lotufo, Roberto,
+	  SoftwareX,
+	  Elsevier,
+	  v. 6, pp. 81-84,
+	  2017.
+	  
+\bibitem{wikipedia}
+	Wikipédia, 
+	Forêt d'arbres décisionnels,
+	30 juin 2019.
+\end{thebibliography}
+
+\end{document}
